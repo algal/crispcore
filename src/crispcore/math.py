@@ -21,17 +21,13 @@ def deg(a_rad):
 
 # decimal
 
-def decimal(exp,place=1):
-    "Evaluates EXP to 1 decimal place"
-    return float(exp.n()).__format__(f'.{place}f')
+def decimal(exp, place=1):
+    "Evaluates EXP to specified decimal places as Float or Matrix"
+    if isinstance(exp, MatrixBase): return exp.evalf().applyfunc(lambda x: Float(round(float(x), place)))
+    return Float(round(float(N(exp)), place))
 
-@patch(Basic)
-def to_decimal_str(self, place=1):
-    "Evaluates expression to specified decimal place"
-    return float(self.n()).__format__(f'.{place}f')
+def to_decimal(self,place=3):
+    return decimal(self,place=place)
 
-@patch(MatrixBase)
-def to_decimal_str(self, place=1):
-    "Evaluates matrix to specified decimal place"
-    return self.evalf().applyfunc(lambda x: float(x).__format__(f'.{place}f'))
-
+sympy.Basic.to_decimal = to_decimal
+sympy.MatrixBase.to_decimal = to_decimal
