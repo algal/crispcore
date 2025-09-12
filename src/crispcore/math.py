@@ -26,12 +26,12 @@ def decimal(exp,place=1):
     return float(exp.n()).__format__(f'.{place}f')
 
 @patch(Basic)
-def to_decimal(self, place=1):
+def to_decimal_str(self, place=1):
     "Evaluates expression to specified decimal place"
     return float(self.n()).__format__(f'.{place}f')
 
 @patch(MatrixBase)
-def to_decimal(self, place=1):
+def to_decimal_str(self, place=1):
     "Evaluates matrix to specified decimal place"
     return self.evalf().applyfunc(lambda x: float(x).__format__(f'.{place}f'))
 
