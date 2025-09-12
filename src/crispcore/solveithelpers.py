@@ -1,4 +1,5 @@
-def _gh_ssh_from_gh_url(gh_repo_address:str):
+def _gh_ssh_from_gh_url(gh_repo_address:str ## GH URL or GH SSH address
+                        ) -> str:
     "Given a GH URL or SSH remote address, returns a SSH remote address or None"
     import re
     pattern = r'https://github\.com/([^/]+)/([^/]+)(?:/.*)?'
@@ -9,7 +10,7 @@ def _gh_ssh_from_gh_url(gh_repo_address:str):
     else: return None
 
 
-def pip_install(gh_address:str # GH address of form git@github.com:username/reponame.git
+def pip_install(gh_address:str # GH URL or GH SSH address
                 ) -> bool: # True, on success
     """Pip installs from repo, using GITHUB_TOKEN if avail.
 
