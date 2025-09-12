@@ -257,3 +257,5 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
         return " | ".join(sorted(parts))
 
     return _shape(x, max_depth, type_hint)
+
+__all__ = ["shape"]

@@ -8,7 +8,9 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "typing-extensions>=4.0.0; python_version<'3.11'"
+    "typing-extensions>=4.0.0; python_version<'3.11'",
+    "sympy>=1.14.0",
+    "fastcore>=1.8.8"
 ]
 
 [[tool.uv.index]]
