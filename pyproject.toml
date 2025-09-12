@@ -1,0 +1,27 @@
+[project]
+name = "crispcore"
+version = "0.1.0"
+description = "A crisp Python library"
+readme = "README.md"
+authors = [
+    { name = "Alexis Gallagher", email = "alexis@alexisgallagher.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "typing-extensions>=4.0.0; python_version<'3.11'"
+]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://upload.pypi.org/legacy/"
+
+[build-system]
+requires = ["uv_build>=0.8.12,<0.9.0"]
+build-backend = "uv_build"
