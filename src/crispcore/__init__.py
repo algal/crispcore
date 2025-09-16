@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence, Set
 from dataclasses import is_dataclass, fields, MISSING
 from typing import Any, get_args, get_origin, Union, Optional
 
-import mathinteractive
+import nbmath
 
 try:
     from typing import TypedDict  # 3.11+
@@ -260,4 +260,4 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
 
     return _shape(x, max_depth, type_hint)
 
-__all__ = ["shape","mathinteractive"]
+__all__ = ["shape","nbmath"]

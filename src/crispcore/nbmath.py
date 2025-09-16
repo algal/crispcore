@@ -8,12 +8,15 @@ from sympy.abc import a,b,c,d
 from sympy.abc import p,q,r,s,t,u,v,w,x,y,z
 from sympy import integrate,diff
 
-from fastcore.all import patch
 from sympy.core.basic import Basic
 from sympy.matrices.matrices import MatrixBase
 
+
 x1,x2,x3,x4 = symbols("x1 x2 x3 x4")
 y1,y2,y3,y4 = symbols("y1 y2 y3 y4")
+
+
+from IPython.display import display, Markdown
 
 def deg(a_rad):
     "Converts radians to degrees"

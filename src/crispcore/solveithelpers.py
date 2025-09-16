@@ -11,7 +11,7 @@ def _gh_ssh_from_gh_url(gh_repo_address:str ## GH URL or GH SSH address
 
 
 def pip_install(gh_address:str # GH URL or GH SSH address
-                ) -> bool: # True, on success
+                ) -> bool:     # True, on success
     """Pip installs from repo, using GITHUB_TOKEN if avail.
 
     gh_address: like git@github.com:username/reponame.git"""
