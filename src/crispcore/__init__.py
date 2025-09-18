@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence, Set
 from dataclasses import is_dataclass, fields, MISSING
 from typing import Any, get_args, get_origin, Union, Optional
 
-import nbmath
+from . import nbmath
 
 try:
     from typing import TypedDict  # 3.11+
