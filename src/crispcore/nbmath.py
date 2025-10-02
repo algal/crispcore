@@ -1,5 +1,5 @@
 import sympy
-from sympy import symbols, Symbol, solve, Matrix, Determinant, Eq, sqrt, Abs, N, Product
+from sympy import symbols, Symbol, solve, Matrix, Determinant, Eq, sqrt, Abs, N, Product, Rational
 from sympy import Integer, Float, Sum, nsimplify, simplify, expand
 from sympy import ln, im, E, I, pi, oo, exp, factorial
 from sympy import sin, cos, tan, acos, asin, atan, rad

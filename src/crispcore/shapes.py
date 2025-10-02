@@ -105,8 +105,8 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
         # dict/Mapping[K, V]
         if isinstance(o, Mapping) and (origin in (dict, Mapping) or hint is dict):
             if len(args) == 2:
-                return f"dict[{ann_to_str(args[0])}, {ann_to_str(args[1])}] ({len(o)})"
-            return f"dict ({len(o)})"
+                return f"({len(o)}) dict[{ann_to_str(args[0])}, {ann_to_str(args[1])}]"
+            return f"({len(o)}) dict"
 
         # list[T] / set[T] / tuple[...] hints
         if isinstance(o, Sequence) and not isinstance(o, (str, bytes, bytearray)):
@@ -116,11 +116,11 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
                 if (origin or hint) is tuple and args and len(args) > 1 and args[-1] is not ...:
                     inner = ", ".join(ann_to_str(a) for a in args)
                     return f"tuple[{inner}]"
-                return f"{(origin or hint).__name__}[{inner}] ({n})"
+                return f"({n}) {(origin or hint).__name__}[{inner}]"
 
         if isinstance(o, Set) and (origin in (set, frozenset) or hint in (set, frozenset)):
             inner = ann_to_str(args[0]) if args else "Any"
-            return f"{(origin or hint).__name__}[{inner}] ({len(o)})"
+            return f"({len(o)}) {(origin or hint).__name__}[{inner}]"
 
         return None
 
@@ -205,12 +205,12 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
                 vtypes = _union(list(o.values()), depth-1)
             finally:
                 seen.discard(oid)
-            return f"dict[{ktypes}, {vtypes}] ({len(o)})"
+            return f"({len(o)}) dict[{ktypes}, {vtypes}]"
 
         # Bytes/str
         if isinstance(o, (str, bytes, bytearray)):
             base = "str" if isinstance(o, str) else ("bytes" if isinstance(o, bytes) else "bytearray")
-            return f"{base} ({len(o)})"
+            return f"({len(o)}) {base}"
 
         # Tuples
         if isinstance(o, tuple):
@@ -221,7 +221,7 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
                     return f"tuple[{inner}]"
                 else:
                     inner = _union(o, depth-1)
-                    return f"tuple[{inner}] ({len(o)})"
+                    return f"({len(o)}) tuple[{inner}]"
             finally:
                 seen.discard(oid)
 
@@ -232,7 +232,7 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
                 inner = _union(o, depth-1)
             finally:
                 seen.discard(oid)
-            return f"list[{inner}] ({len(o)})"
+            return f"({len(o)}) list[{inner}]"
 
         # Sets
         if isinstance(o, Set):
@@ -241,7 +241,7 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
                 inner = _union(o, depth-1)
             finally:
                 seen.discard(oid)
-            return f"set[{inner}] ({len(o)})"
+            return f"({len(o)}) set[{inner}]"
 
         # Fallback
         if hasattr(o, "__dict__") or hasattr(o, "__slots__"):
@@ -257,3 +257,260 @@ def shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = 
         return " | ".join(sorted(parts))
 
     return _shape(x, max_depth, type_hint)
+
+
+def pretty_shape(x: Any, *, max_depth: int = 5, tuple_limit: int = 6, type_hint: Any = None) -> str:
+    """
+    Pretty, multi-line 'shape' with counts first and indented type parameters.
+
+    Differences from `shape`:
+      - Moves count indicators to the front: e.g. "(3) list[int]".
+      - When a type is parameterized (e.g., list[T], dict[K,V], tuple[...]),
+        prints parameters on new lines, indented by two spaces per depth.
+    """
+
+    seen: set[int] = set()
+
+    def is_typeddict_cls(tp: Any) -> bool:
+        if TypedDict is None:
+            return False
+        return isinstance(tp, type) and issubclass(tp, dict) and hasattr(tp, "__annotations__")
+
+    def indent_block(s: str, indent: str) -> str:
+        if not s:
+            return s
+        lines = s.splitlines()
+        return "\n".join(indent + ln if ln else indent for ln in lines)
+
+    def ann_to_pretty_str(tp: Any, indent: str = "") -> str:
+        if tp is Any:
+            return "Any"
+        origin = get_origin(tp)
+        args = get_args(tp)
+
+        # Union / Optional
+        if origin is Union:
+            alts = [ann_to_pretty_str(a, indent) for a in args]
+            return " | ".join(sorted(set(alts)))
+
+        # Annotated[T, ...]
+        if str(origin).endswith("Annotated"):
+            return ann_to_pretty_str(args[0], indent)
+
+        # Literal[...] (render as the literals)
+        if (getattr(origin, "__name__", "") or str(origin)).endswith("Literal"):
+            return " | ".join(repr(a) for a in args)
+
+        # Parametrized containers
+        if origin in (list, tuple, set, frozenset):
+            name = origin.__name__
+            if not args:
+                return name
+            if origin is tuple:
+                if len(args) == 2 and args[1] is ...:
+                    inner = ann_to_pretty_str(args[0], indent + "  ")
+                    return f"{name}[\n{indent}  {inner}\n{indent}]"
+                else:
+                    inner = ",\n".join(
+                        f"{indent}  {ann_to_pretty_str(a, indent + '  ')}" for a in args
+                    )
+                    return f"{name}[\n{inner}\n{indent}]"
+            # list / set / frozenset
+            inner = ann_to_pretty_str(args[0], indent + "  ")
+            return f"{name}[\n{indent}  {inner}\n{indent}]"
+
+        if origin in (dict, Mapping):
+            if len(args) == 2:
+                k = ann_to_pretty_str(args[0], indent + "  ")
+                v = ann_to_pretty_str(args[1], indent + "  ")
+                return f"dict[\n{indent}  {k},\n{indent}  {v}\n{indent}]"
+            return "dict"
+
+        # Builtins or classes
+        if isinstance(tp, type):
+            return tp.__name__
+
+        # Fallback
+        return str(tp).replace("typing.", "")
+
+    def render_typeddict_schema(tp: Any) -> str:
+        ann = getattr(tp, "__annotations__", {})
+        req = set(getattr(tp, "__required_keys__", set()))
+        opt = set(getattr(tp, "__optional_keys__", set()))
+        parts = []
+        for k, t in ann.items():
+            key = f"{k}?" if (k in opt and k not in req) else k
+            parts.append(f"{key}: {ann_to_pretty_str(t)}")
+        return "{" + ", ".join(parts) + "}"
+
+    def apply_type_hint_to_container(o: Any, hint: Any, indent: str) -> str | None:
+        if hint is None:
+            return None
+        origin = get_origin(hint)
+        args = get_args(hint)
+
+        # TypedDict schema (class) — render schema only
+        if is_typeddict_cls(hint):
+            return render_typeddict_schema(hint)
+
+        # dict/Mapping[K, V]
+        if isinstance(o, Mapping) and (origin in (dict, Mapping) or hint is dict):
+            if len(args) == 2:
+                inner = f"dict[\n{indent}  {ann_to_pretty_str(args[0], indent + '  ')},\n{indent}  {ann_to_pretty_str(args[1], indent + '  ')}\n{indent}]"
+                return f"({len(o)}) {inner}"
+            return f"({len(o)}) dict"
+
+        # list[T] / set[T] / tuple[...] hints
+        if isinstance(o, Sequence) and not isinstance(o, (str, bytes, bytearray)):
+            if origin in (list, tuple) or hint in (list, tuple):
+                if (origin or hint) is tuple and args and len(args) > 1 and args[-1] is not ...:
+                    inner_lines = ",\n".join(
+                        f"{indent}  {ann_to_pretty_str(a, indent + '  ')}" for a in args
+                    )
+                    inner = f"tuple[\n{inner_lines}\n{indent}]"
+                    return inner  # tuple size already conveys info; no count prefix here
+                inner = ann_to_pretty_str(args[0] if args else Any, indent + "  ")
+                return f"({len(o)}) {(origin or hint).__name__}[\n{indent}  {inner}\n{indent}]"
+
+        if isinstance(o, Set) and (origin in (set, frozenset) or hint in (set, frozenset)):
+            inner = ann_to_pretty_str(args[0] if args else Any, indent + "  ")
+            return f"({len(o)}) {(origin or hint).__name__}[\n{indent}  {inner}\n{indent}]"
+
+        return None
+
+    def _pshape(o: Any, depth: int, hint: Any = None, indent: str = "") -> str:
+        oid = id(o)
+        if oid in seen:
+            return "…"
+        if depth <= 0:
+            return "…"
+
+        # If a type_hint can drive container printing, try that first.
+        hinted = apply_type_hint_to_container(o, hint, indent)
+        if hinted is not None:
+            return hinted
+
+        # Scalars
+        if o is None:
+            return "None"
+        t = type(o)
+        tn = t.__name__
+
+        # NumPy-ish
+        if hasattr(o, "shape") and hasattr(o, "dtype"):
+            try:
+                shp = "×".join(map(str, o.shape))
+            except Exception:
+                shp = "?"
+            try:
+                dt = str(o.dtype)
+            except Exception:
+                dt = "?"
+            base = getattr(t, "__name__", "ndarray")
+            # Keep ndarray formatting similar, count-like shape after type
+            return f"{base}[{dt}] ({shp})"
+
+        # Pandas (basic)
+        mod = getattr(t, "__module__", "")
+        if mod.startswith("pandas."):
+            if tn == "DataFrame" and hasattr(o, "dtypes"):
+                try:
+                    dtypes = ", ".join(f"{c}:{str(dt)}" for c, dt in o.dtypes.items())
+                except Exception:
+                    dtypes = "…"
+                r, c = getattr(o, "shape", ("?", "?"))
+                return f"DataFrame[{dtypes}] ({r}×{c})"
+            if tn == "Series" and hasattr(o, "dtype"):
+                n = getattr(o, "shape", (None,))[0]
+                return f"Series[{str(o.dtype)}] ({n})"
+            return tn
+
+        # Dataclass (instance)
+        if is_dataclass(o):
+            seen.add(oid)
+            try:
+                parts = []
+                for f in fields(o):
+                    ann = f.type if f.type is not None else Any
+                    val_present = True
+                    try:
+                        v = getattr(o, f.name)
+                    except Exception:
+                        val_present = False
+                        v = None
+                    if val_present:
+                        parts.append(f"{f.name}: {_pshape(v, depth-1, ann, indent)}")
+                    else:
+                        parts.append(f"{f.name}: {ann_to_pretty_str(ann, indent)}")
+                return f"{tn}" + "{" + ", ".join(parts) + "}"
+            finally:
+                seen.discard(oid)
+
+        # TypedDict *classes* passed directly
+        if is_typeddict_cls(o):
+            return render_typeddict_schema(o)
+
+        # Mappings
+        if isinstance(o, Mapping):
+            seen.add(oid)
+            try:
+                ktypes = _union(list(o.keys()), depth-1, indent + "  ")
+                vtypes = _union(list(o.values()), depth-1, indent + "  ")
+            finally:
+                seen.discard(oid)
+            inner = f"dict[\n{indent}  {ktypes},\n{indent}  {vtypes}\n{indent}]"
+            return f"({len(o)}) {inner}"
+
+        # Bytes/str
+        if isinstance(o, (str, bytes, bytearray)):
+            base = "str" if isinstance(o, str) else ("bytes" if isinstance(o, bytes) else "bytearray")
+            return f"({len(o)}) {base}"
+
+        # Tuples
+        if isinstance(o, tuple):
+            seen.add(oid)
+            try:
+                if len(o) <= tuple_limit:
+                    inner = ",\n".join(indent_block(_pshape(e, depth-1, None, indent + "  "), indent + "  ") for e in o)
+                    return f"tuple[\n{inner}\n{indent}]"
+                else:
+                    inner = _union(o, depth-1, indent + "  ")
+                    return f"({len(o)}) tuple[\n{indent}  {inner}\n{indent}]"
+            finally:
+                seen.discard(oid)
+
+        # Lists / general Sequences (but not str/bytes handled above)
+        if isinstance(o, Sequence):
+            seen.add(oid)
+            try:
+                inner = _union(o, depth-1, indent + "  ")
+            finally:
+                seen.discard(oid)
+            return f"({len(o)}) list[\n{indent}  {inner}\n{indent}]"
+
+        # Sets
+        if isinstance(o, Set):
+            seen.add(oid)
+            try:
+                inner = _union(o, depth-1, indent + "  ")
+            finally:
+                seen.discard(oid)
+            return f"({len(o)}) set[\n{indent}  {inner}\n{indent}]"
+
+        # Fallback
+        if hasattr(o, "__dict__") or hasattr(o, "__slots__"):
+            return tn
+        return tn
+
+    def _union(iterable, depth, indent: str) -> str:
+        if not iterable:
+            return "Any"
+        parts = {_pshape(e, depth, None, indent) for e in iterable}
+        if len(parts) == 1:
+            return next(iter(parts))
+        # If any part is multiline, print each on its own line
+        if any("\n" in p for p in parts):
+            return "\n".join(sorted(parts))
+        return " | ".join(sorted(parts))
+
+    return _pshape(x, max_depth, type_hint, "")
